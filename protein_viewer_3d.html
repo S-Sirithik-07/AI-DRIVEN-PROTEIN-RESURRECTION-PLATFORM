@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>3D Protein Viewer - AI Protein Platform</title>
+    <script src="https://3Dmol.csb.pitt.edu/build/3Dmol-min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; background: #0a0a0a; color: white; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .viewer-container { display: grid; grid-template-columns: 300px 1fr; gap: 20px; }
+        .controls { background: #1a1a1a; padding: 20px; border-radius: 8px; height: fit-content; }
+        .viewer { background: #000; border: 2px solid #333; border-radius: 8px; height: 600px; position: relative; }
+        .control-group { margin: 15px 0; }
+        .control-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .control-group select, .control-group input, .control-group textarea { 
+            width: 100%; padding: 8px; border: 1px solid #333; background: #2a2a2a; 
+            color: white; border-radius: 4px; 
+        }
+        .button { background: #00bcd4; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; width: 100%; margin: 5px 0; }
+        .button:hover { background: #0097a7; }
+        .button.secondary { background: #666; }
+        .button.secondary:hover { background: #777; }
+        .info-panel { background: #1a1a1a; padding: 15px; margin-top: 20px; border-radius: 8px; }
+        .loading { text-align: center; padding: 50px; color: #666; }
+        #viewer3d { width: 100%; height: 100%; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧬 3D Protein Viewer</h1>
+            <p>Interactive visualization of AI-generated protein structures</p>
+        </div>
+
+        <div class="viewer-container">
+            <div class="controls">
+                <h3>🎮 Viewer Controls</h3>
+                
+                <div class="control-group">
+                    <label>Load Structure:</label>
+                    <select id="loadOption">
+                        <option value="sample">Sample Protein</option>
+                        <option value="pdb">PDB ID</option>
+                        <option value="sequence">From Sequence</option>
+                        <option value="paste">Paste PDB</option>
+                    </select>
+                </div>
+
+                <div class="control-group" id="pdbInput" style="display:none;">
+                    <label>PDB ID:</label>
+                    <input type="text" id="pdbId" placeholder="e.g., 1ABC">
+                </div>
+
+                <div class="control-group" id="sequenceInput" style="display:none;">
+                    <label>Protein Sequence:</label>
+                    <textarea id="proteinSequence" rows="3" placeholder="Enter amino acid sequence..."></textarea>
+                </div>
+
+                <div class="control-group" id="pdbPaste" style="display:none;">
+                    <label>PDB Data:</label>
+                    <textarea id="pdbData" rows="5" placeholder="Paste PDB file content..."></textarea>
+                </div>
+
+                <button class="button" onclick="loadStructure()">🔄 Load Structure</button>
+
+                <hr style="border-color: #333; margin: 20px 0;">
+
+                <div class="control-group">
+                    <label>Representation:</label>
+                    <select id="representation" onchange="updateRepresentation()">
+                        <option value="cartoon">Cartoon (Ribbon)</option>
+                        <option value="stick">Stick (Bonds)</option>
+                        <option value="sphere">Sphere (Space-fill)</option>
+                        <option value="line">Line (Wireframe)</option>
+                        <option value="surface">Surface</option>
+                        <option value="cartoon+stick">Cartoon + Stick</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label>Color Scheme:</label>
+                    <select id="colorScheme" onchange="updateColors()">
+                        <option value="spectrum">Rainbow (N→C)</option>
+                        <option value="residue">By Residue Type</option>
+                        <option value="chain">By Chain</option>
+                        <option value="bfactor">By B-factor</option>
+                        <option value="hydrophobicity">Hydrophobicity</option>
+                        <option value="secondary">Secondary Structure</option>
+                        <option value="atom">By Atom Type</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label>Background:</label>
+                    <select id="background" onchange="updateBackground()">
+                        <option value="black">Black</option>
+                        <option value="white">White</option>
+                        <option value="gray">Gray</option>
+                    </select>
+                </div>
+
+                <button class="button secondary" onclick="centerView()">🎯 Center View</button>
+                <button class="button secondary" onclick="resetView()">🔄 Reset View</button>
+                <button class="button secondary" onclick="takeScreenshot()">📸 Screenshot</button>
+
+                <div class="info-panel">
+                    <h4>📊 Structure Info</h4>
+                    <div id="structureInfo">
+                        <p>No structure loaded</p>
+                    </div>
+                </div>
+
+                <div class="info-panel" id="loadedProteins" style="display:none;">
+                    <h4>🧬 Loaded Proteins</h4>
+                    <div id="proteinList">
+                        <!-- Dynamically populated -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="viewer">
+                <div id="viewer3d"></div>
+                <div id="loading" class="loading" style="display:none;">
+                    🔄 Loading structure...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let viewer;
+        let currentModel;
+        let loadedProteins = []; // Store loaded proteins
+
+        // Initialize 3Dmol viewer
+        function initViewer() {
+            const element = document.getElementById('viewer3d');
+            const config = { backgroundColor: 'black' };
+            viewer = $3Dmol.createViewer(element, config);
+            
+            // Load sample protein
+            loadSampleProtein();
+        }
+
+        // Handle load option changes
+        document.getElementById('loadOption').addEventListener('change', function() {
+            const option = this.value;
+            document.getElementById('pdbInput').style.display = option === 'pdb' ? 'block' : 'none';
+            document.getElementById('sequenceInput').style.display = option === 'sequence' ? 'block' : 'none';
+            document.getElementById('pdbPaste').style.display = option === 'paste' ? 'block' : 'none';
+        });
+
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+
+        function loadSampleProtein() {
+            const samplePDB = `HEADER    SAMPLE PROTEIN
+ATOM      1  CA  MET A   1      20.154  15.456  25.789  1.00 50.00           C
+ATOM      2  CA  LYS A   2      23.234  16.567  28.890  1.00 55.00           C
+ATOM      3  CA  LEU A   3      26.314  17.678  31.991  1.00 60.00           C
+ATOM      4  CA  VAL A   4      29.394  18.789  35.092  1.00 65.00           C
+ATOM      5  CA  ALA A   5      32.474  19.890  38.193  1.00 70.00           C
+ATOM      6  CA  GLY A   6      35.554  20.901  41.294  1.00 75.00           C
+ATOM      7  CA  SER A   7      38.634  21.012  44.395  1.00 80.00           C
+ATOM      8  CA  THR A   8      41.714  22.123  47.496  1.00 85.00           C
+ATOM      9  CA  PRO A   9      44.794  23.234  50.597  1.00 90.00           C
+ATOM     10  CA  GLU A  10      47.874  24.345  53.698  1.00 95.00           C
+END`;
+            
+            loadPDBString(samplePDB);
+            updateStructureInfo("Sample Protein", 10, "Demo structure for testing");
+        }
+
+        function loadStructure() {
+            const option = document.getElementById('loadOption').value;
+            showLoading(true);
+
+            switch(option) {
+                case 'sample':
+                    loadSampleProtein();
+                    break;
+                case 'pdb':
+                    loadFromPDB();
+                    break;
+                case 'sequence':
+                    loadFromSequence();
+                    break;
+                case 'paste':
+                    loadFromPaste();
+                    break;
+            }
+        }
+
+        function loadFromPDB() {
+            const pdbId = document.getElementById('pdbId').value.trim();
+            if (!pdbId) {
+                alert('Please enter a PDB ID');
+                showLoading(false);
+                return;
+            }
+
+            // Try to fetch from RCSB PDB
+            fetch(`https://files.rcsb.org/view/${pdbId}.pdb`)
+                .then(response => {
+                    if (!response.ok) throw new Error('PDB not found');
+                    return response.text();
+                })
+                .then(pdbData => {
+                    loadPDBString(pdbData);
+                    updateStructureInfo(pdbId.toUpperCase(), "Unknown", "From RCSB PDB Database");
+                })
+                .catch(error => {
+                    alert('Could not load PDB: ' + error.message);
+                    showLoading(false);
+                });
+        }
+
+        function loadFromSequence() {
+            const sequence = document.getElementById('proteinSequence').value.trim();
+            if (!sequence) {
+                alert('Please enter a protein sequence');
+                showLoading(false);
+                return;
+            }
+
+            // Generate simple structure from sequence
+            const pdbData = generatePDBFromSequence(sequence);
+            loadPDBString(pdbData);
+            updateStructureInfo("Generated", sequence.length, "Generated from sequence");
+        }
+
+        function loadFromPaste() {
+            const pdbData = document.getElementById('pdbData').value.trim();
+            if (!pdbData) {
+                alert('Please paste PDB data');
+                showLoading(false);
+                return;
+            }
+
+            loadPDBString(pdbData);
+            updateStructureInfo("Pasted Structure", "Unknown", "User provided PDB data");
+        }
+
+        function generatePDBFromSequence(sequence) {
+            const aaMap = {
+                'A': 'ALA', 'C': 'CYS', 'D': 'ASP', 'E': 'GLU', 'F': 'PHE',
+                'G': 'GLY', 'H': 'HIS', 'I': 'ILE', 'K': 'LYS', 'L': 'LEU',
+                'M': 'MET', 'N': 'ASN', 'P': 'PRO', 'Q': 'GLN', 'R': 'ARG',
+                'S': 'SER', 'T': 'THR', 'V': 'VAL', 'W': 'TRP', 'Y': 'TYR'
+            };
+
+            let pdb = "HEADER    GENERATED FROM SEQUENCE\\n";
+            
+            for (let i = 0; i < sequence.length; i++) {
+                const aa = sequence[i].toUpperCase();
+                const aaName = aaMap[aa] || 'ALA';
+                
+                // Generate coordinates in a helix-like pattern
+                const angle = i * 100 * Math.PI / 180;
+                const x = 15 * Math.cos(angle) + i * 1.5;
+                const y = 15 * Math.sin(angle);
+                const z = i * 1.5;
+                
+                pdb += `ATOM  ${(i+1).toString().padStart(5)}  CA  ${aaName} A${(i+1).toString().padStart(4)}    ${x.toFixed(3).padStart(8)}${y.toFixed(3).padStart(8)}${z.toFixed(3).padStart(8)}  1.00 50.00           C\\n`;
+            }
+            
+            pdb += "END";
+            return pdb;
+        }
+
+        function loadPDBString(pdbData, name = null, description = null) {
+            viewer.clear();
+            currentModel = viewer.addModel(pdbData, 'pdb');
+            updateRepresentation();
+            viewer.zoomTo();
+            viewer.render();
+            showLoading(false);
+            
+            // Store the protein if it has a name (from dynamic loading)
+            if (name) {
+                const protein = {
+                    name: name,
+                    description: description || 'Loaded protein',
+                    pdbData: pdbData,
+                    timestamp: new Date().toLocaleTimeString()
+                };
+                
+                // Add to list (keep only last 10)
+                loadedProteins.unshift(protein);
+                if (loadedProteins.length > 10) {
+                    loadedProteins = loadedProteins.slice(0, 10);
+                }
+                
+                updateProteinList();
+            }
+        }
+        
+        function updateProteinList() {
+            const listDiv = document.getElementById('proteinList');
+            const panelDiv = document.getElementById('loadedProteins');
+            
+            if (loadedProteins.length === 0) {
+                panelDiv.style.display = 'none';
+                return;
+            }
+            
+            panelDiv.style.display = 'block';
+            
+            let html = '';
+            loadedProteins.forEach((protein, index) => {
+                html += `
+                    <div style="background: #2a2a2a; padding: 8px; margin: 5px 0; border-radius: 4px; cursor: pointer;" 
+                         onclick="switchToProtein(${index})" 
+                         title="Click to view this protein">
+                        <div style="font-weight: bold; font-size: 12px;">${protein.name}</div>
+                        <div style="font-size: 10px; color: #aaa;">${protein.timestamp}</div>
+                    </div>
+                `;
+            });
+            
+            listDiv.innerHTML = html;
+        }
+        
+        function switchToProtein(index) {
+            if (index >= 0 && index < loadedProteins.length) {
+                const protein = loadedProteins[index];
+                loadPDBString(protein.pdbData);
+                
+                // Count residues
+                const residueCount = (protein.pdbData.match(/^ATOM/gm) || []).length;
+                updateStructureInfo(protein.name, residueCount, protein.description);
+            }
+        }
+
+        function updateRepresentation() {
+            if (!currentModel) return;
+            
+            const rep = document.getElementById('representation').value;
+            const colorScheme = document.getElementById('colorScheme').value;
+            
+            viewer.setStyle({}, {}); // Clear styles
+            
+            let style = {};
+            
+            if (rep === 'cartoon') {
+                style.cartoon = { 
+                    colorscheme: colorScheme,
+                    thickness: 0.8,
+                    opacity: 0.9
+                };
+            } else if (rep === 'stick') {
+                style.stick = { 
+                    colorscheme: colorScheme,
+                    radius: 0.25
+                };
+            } else if (rep === 'sphere') {
+                style.sphere = { 
+                    colorscheme: colorScheme,
+                    radius: 1.2
+                };
+            } else if (rep === 'surface') {
+                style.surface = { 
+                    colorscheme: colorScheme,
+                    opacity: 0.8
+                };
+            } else if (rep === 'cartoon+stick') {
+                style.cartoon = { 
+                    colorscheme: colorScheme,
+                    thickness: 0.6,
+                    opacity: 0.8
+                };
+                viewer.setStyle({}, style);
+                viewer.addStyle({}, {stick: {colorscheme: colorScheme, radius: 0.15}});
+                viewer.render();
+                return;
+            } else {
+                style[rep] = { colorscheme: colorScheme };
+            }
+            
+            viewer.setStyle({}, style);
+            viewer.render();
+        }
+
+        function updateColors() {
+            updateRepresentation();
+        }
+
+        function updateBackground() {
+            const bg = document.getElementById('background').value;
+            viewer.setBackgroundColor(bg);
+            viewer.render();
+        }
+
+        function centerView() {
+            viewer.zoomTo();
+            viewer.render();
+        }
+
+        function resetView() {
+            viewer.zoomTo();
+            viewer.rotate(0, {x:1, y:0, z:0});
+            viewer.render();
+        }
+
+        function takeScreenshot() {
+            viewer.pngURI((uri) => {
+                const link = document.createElement('a');
+                link.href = uri;
+                link.download = 'protein_structure.png';
+                link.click();
+            });
+        }
+
+        function updateStructureInfo(name, residues, description) {
+            document.getElementById('structureInfo').innerHTML = `
+                <p><strong>Name:</strong> ${name}</p>
+                <p><strong>Residues:</strong> ${residues}</p>
+                <p><strong>Source:</strong> ${description}</p>
+                <p><strong>Controls:</strong></p>
+                <ul style="font-size: 12px; margin: 5px 0;">
+                    <li>Left click + drag: Rotate</li>
+                    <li>Right click + drag: Zoom</li>
+                    <li>Middle click + drag: Pan</li>
+                </ul>
+            `;
+        }
+
+        // Listen for messages from parent window (for dynamic PDB loading)
+        window.addEventListener('message', function(event) {
+            if (event.data && event.data.type === 'loadPDB') {
+                console.log('Received PDB data from parent:', event.data);
+                
+                // Load the PDB data
+                if (event.data.pdb) {
+                    const name = event.data.name || 'AI Generated Protein';
+                    const description = event.data.description || 'Dynamically loaded from AI platform';
+                    
+                    loadPDBString(event.data.pdb, name, description);
+                    
+                    // Count residues from PDB data
+                    const residueCount = (event.data.pdb.match(/^ATOM/gm) || []).length;
+                    
+                    updateStructureInfo(name, residueCount, description);
+                    
+                    // Set to a nice default view for AI proteins
+                    setTimeout(() => {
+                        document.getElementById('representation').value = 'cartoon';
+                        document.getElementById('colorScheme').value = 'spectrum';
+                        document.getElementById('background').value = 'black';
+                        updateRepresentation();
+                        updateBackground();
+                        centerView();
+                        
+                        // Add some nice lighting
+                        viewer.setBackgroundColor('black');
+                        viewer.render();
+                    }, 500);
+                }
+            }
+        });
+
+        // Initialize when page loads
+        window.addEventListener('load', initViewer);
+    </script>
+</body>
+</html>

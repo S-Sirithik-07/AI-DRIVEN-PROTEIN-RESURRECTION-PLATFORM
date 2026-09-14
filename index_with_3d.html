@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Protein Resurrection Platform - AI</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background: #0a0a0a; color: white; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 40px; }
+        .card { background: #1a1a1a; padding: 20px; margin: 20px 0; border-radius: 8px; }
+        .button { background: #00bcd4; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin: 5px; }
+        .button:hover { background: #0097a7; }
+        .button.view3d { background: #4caf50; }
+        .button.view3d:hover { background: #45a049; }
+        .form-group { margin: 15px 0; }
+        .form-group label { display: block; margin-bottom: 5px; }
+        .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 8px; border: 1px solid #333; background: #2a2a2a; color: white; border-radius: 4px; }
+        .top-row { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 20px; }
+        .results-section { width: 100%; }
+        .status { padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .success { background: #4caf50; }
+        .processing { background: #ff9800; }
+        .error { background: #f44336; }
+        .real-ai-badge { background: #4caf50; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; }
+        .sim-ai-badge { background: #ff9800; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧬 AI Protein Resurrection Platform</h1>
+            <p>AI-powered protein design with 3D visualization</p>
+            <div id="aiStatus"></div>
+        </div>
+
+        <div class="top-row">
+            <div class="card">
+                <h2>🎯 Protein Designer</h2>
+                <form id="designForm">
+                    <div class="form-group">
+                        <label>Target Protein (Sequence or PDB ID):</label>
+                        <textarea id="targetProtein" placeholder="Enter protein sequence or PDB ID (e.g., P53_HUMAN)" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Design Type:</label>
+                        <select id="designType">
+                            <option value="binder">Protein Binder</option>
+                            <option value="inhibitor">Protein Inhibitor</option>
+                            <option value="activator">Protein Activator</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Number of Designs:</label>
+                        <input type="number" id="numDesigns" value="3" min="1" max="5">
+                    </div>
+                    <button type="submit" class="button">🚀 Generate with AI</button>
+                </form>
+                <div id="designStatus"></div>
+            </div>
+
+            <div class="card">
+                <h2>📊 AI Status</h2>
+                <div id="apiStatus">Checking AI Models...</div>
+                <div style="margin-top: 15px;">
+                    <h3>AI Components:</h3>
+                    <ul id="aiComponents" style="margin: 10px 0; font-size: 14px;">
+                        <li>🔄 Checking ESM-2...</li>
+                        <li>🔄 Checking AlphaFold API...</li>
+                        <li>🔄 Checking Embedding Analysis...</li>
+                    </ul>
+                </div>
+                <div style="margin-top: 15px;">
+                    <button class="button view3d" onclick="open3DViewer()">🔍 Open 3D Viewer</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="results-section">
+            <div class="card">
+                <h2>🔬 Generated Proteins</h2>
+                <div id="results">
+                    <p>No proteins generated yet. Use the designer to create AI-powered proteins!</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Check Real AI API status
+        async function checkRealAI() {
+            try {
+                const response = await fetch('http://localhost:8000/health');
+                const data = await response.json();
+                
+                document.getElementById('apiStatus').innerHTML = 
+                    '<div class="status success"> AI Backend: Connected</div>';
+                
+                document.getElementById('aiStatus').innerHTML = `
+                    <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                        <span class="${data.real_ai_loaded ? 'real-ai-badge' : 'sim-ai-badge'}">
+                            ESM-2: ${data.real_ai_loaded ? 'AI' : 'Simulated'}
+                        </span>
+                        <span class="${data.proteinmpnn_real ? 'real-ai-badge' : data.proteinmpnn_loaded ? 'sim-ai-badge' : 'sim-ai-badge'}">
+                            ProteinMPNN: ${data.proteinmpnn_real ? 'Real AI' : data.proteinmpnn_loaded ? 'Heuristic' : 'Template'}
+                        </span>
+                        <span class="real-ai-badge">Diffusion: Active</span>
+                        <span class="real-ai-badge">SE(3)-GNN: Active</span>
+                        <span class="real-ai-badge">Chemistry: Active</span>
+                        <span class="real-ai-badge">AlphaFold: Active</span>
+                        <span class="real-ai-badge">GPU: ${data.gpu_available ? 'Available' : 'CPU Only'}</span>
+                    </div>
+                `;
+
+                // Update AI components list
+                document.getElementById('aiComponents').innerHTML = `
+                    <li>✅ ESM-2 Protein Language Model: ${data.real_ai_loaded ? 'AI Loaded' : 'Simulated'}</li>
+                    <li>✅ ProteinMPNN Sequence Design: ${data.proteinmpnn_real ? 'Real AI Model' : data.proteinmpnn_loaded ? 'Structure-Guided Heuristics' : 'Template-Based'}</li>
+                    <li>✅ Diffusion Model: Backbone Refinement</li>
+                    <li>✅ SE(3)-GNN: Equivariant Structure Denoising</li>
+                    <li>✅ Chemistry Simulation: Stability Analysis</li>
+                    <li>✅ AlphaFold Database API: Active</li>
+                    <li>✅ Embedding-Based Analysis: ${data.real_ai_loaded ? 'Functional Prediction Active' : 'Basic Mode'}</li>
+                `;
+                
+            } catch (error) {
+                document.getElementById('apiStatus').innerHTML = 
+                    '<div class="status error">❌ AI Backend: Disconnected</div>';
+            }
+        }
+
+        // Handle form submission
+        document.getElementById('designForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const targetProtein = document.getElementById('targetProtein').value;
+            const designType = document.getElementById('designType').value;
+            const numDesigns = document.getElementById('numDesigns').value;
+            
+            if (!targetProtein) {
+                alert('Please enter a target protein sequence or PDB ID');
+                return;
+            }
+
+            const statusDiv = document.getElementById('designStatus');
+            statusDiv.innerHTML = '<div class="status processing">🔄 Starting AI Pipeline...</div>';
+
+            try {
+                const response = await fetch('http://localhost:8000/api/v1/protein/design', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        target_protein: targetProtein,
+                        design_type: designType,
+                        num_designs: parseInt(numDesigns)
+                    })
+                });
+
+                const result = await response.json();
+                
+                statusDiv.innerHTML = `
+                    <div class="status processing">
+                        🔄 AI Pipeline Started!<br>
+                        Job ID: ${result.job_id}<br>
+                        Status: ${result.message}
+                    </div>
+                `;
+
+                // Poll for results
+                pollJobStatus(result.job_id, statusDiv);
+
+            } catch (error) {
+                statusDiv.innerHTML = '<div class="status error">❌ Error: ' + error.message + '</div>';
+            }
+        });
+
+        // Poll job status function
+        async function pollJobStatus(jobId, statusDiv) {
+            const maxAttempts = 30;
+            let attempts = 0;
+            
+            const poll = async () => {
+                try {
+                    const response = await fetch(`http://localhost:8000/api/v1/protein/design/${jobId}`);
+                    const job = await response.json();
+                    
+                    // Update status
+                    statusDiv.innerHTML = `
+                        <div class="status ${job.status === 'completed' ? 'success' : 'processing'}">
+                            ${job.status === 'completed' ? '✅' : '🔄'} ${job.stage}<br>
+                            Progress: ${job.progress}%<br>
+                            Job ID: ${jobId}<br>
+                            AI: ${job.real_ai_used ? 'Active' : 'Simulated'}
+                        </div>
+                    `;
+                    
+                    // Show AI logs
+                    if (job.ai_logs && job.ai_logs.length > 0) {
+                        let logsHTML = '<div style="background: #333; padding: 10px; margin: 10px 0; border-radius: 4px; font-family: monospace; font-size: 12px;"><strong>🤖 AI Pipeline Logs:</strong><br>';
+                        job.ai_logs.forEach(log => {
+                            logsHTML += `• ${log}<br>`;
+                        });
+                        logsHTML += '</div>';
+                        statusDiv.innerHTML += logsHTML;
+                    }
+                    
+                    if (job.status === 'completed' && job.designs) {
+                        // Show detailed results
+                        let resultsHTML = '<h3>🧬 AI-Generated Proteins:</h3>';
+                        job.designs.forEach((design, i) => {
+                            resultsHTML += `
+                                <div class="card" style="background: #2a2a2a; margin: 10px 0;">
+                                    <h4>🧪 Design ${i + 1} - Length: ${design.length}</h4>
+                                    <div style="margin: 10px 0;">
+                                        <p><strong>Full Sequence:</strong></p>
+                                        <div style="background: #333; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 11px; word-break: break-all; line-height: 1.4;">
+                                            ${design.sequence}
+                                        </div>
+                                    </div>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0;">
+                                        <div>
+                                            <p><strong>🎯 Target Similarity:</strong> ${(design.target_similarity * 100).toFixed(1)}%</p>
+                                            <p><strong>🔬 Binding Potential:</strong> ${(design.binding_potential * 100).toFixed(1)}%</p>
+                                            <p><strong>⚡ Stability Score:</strong> ${(design.stability_score * 100).toFixed(1)}%</p>
+                                        </div>
+                                        <div>
+                                            <p><strong>🧬 Confidence:</strong> ${(design.confidence_score * 100).toFixed(1)}%</p>
+                                            <p><strong>🎪 Function Prediction:</strong> 
+                                                <span style="color: ${design.functional_prediction === 'High' ? '#4caf50' : design.functional_prediction === 'Medium' ? '#ff9800' : '#f44336'}">
+                                                    ${design.functional_prediction || 'Unknown'}
+                                                </span>
+                                            </p>
+                                            <p><strong>🤖 Analysis:</strong> ${design.analysis_method || 'Standard'}</p>
+                                            <p><strong>🧬 Sequence Method:</strong> ${design.sequence_method || 'Template'}</p>
+                                            <p><strong>📊 Backbone Method:</strong> ${design.backbone_method || 'Random'}</p>
+                                            ${design.ai_pipeline_components ? `<p><strong>🤖 AI Pipeline:</strong> ${design.ai_pipeline_components.join(' → ')}</p>` : ''}
+                                            <p><strong>💊 Binding Affinity:</strong> ${design.binding_affinity.toFixed(1)} kcal/mol</p>
+                                        </div>
+                                    </div>
+                                    <div style="margin: 10px 0;">
+                                        <p><strong>🤖 AI Models Used:</strong></p>
+                                        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin: 5px 0;">
+                                            <span class="${design.real_ai_analysis ? 'real-ai-badge' : 'sim-ai-badge'}">
+                                                ESM-2: ${design.real_ai_analysis ? 'Real AI' : 'Simulated'}
+                                            </span>
+                                            <span class="${design.sequence_method === 'ProteinMPNN' ? 'real-ai-badge' : design.sequence_method === 'Heuristic' ? 'sim-ai-badge' : 'sim-ai-badge'}">
+                                                ProteinMPNN: ${design.sequence_method || 'Template'}
+                                            </span>
+                                            <span class="real-ai-badge">Diffusion</span>
+                                            <span class="real-ai-badge">SE(3)-GNN</span>
+                                            <span class="real-ai-badge">Chemistry</span>
+                                        </div>
+                                    </div>
+                                    ${design.chemistry_analysis ? `
+                                    <div style="margin: 10px 0; background: #1a2a1a; padding: 10px; border-radius: 4px; border-left: 4px solid #4caf50;">
+                                        <p><strong>⚗️ Chemistry Analysis:</strong></p>
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px;">
+                                            <div>
+                                                <p>Stability: ${(design.chemistry_analysis.stability_score * 100).toFixed(1)}%</p>
+                                                <p>Hydrophobic Core: ${(design.chemistry_analysis.hydrophobic_core * 100).toFixed(1)}%</p>
+                                            </div>
+                                            <div>
+                                                <p>Electrostatic: ${(design.chemistry_analysis.electrostatic_energy * 100).toFixed(1)}%</p>
+                                                <p>Feasibility: <span style="color: ${design.chemistry_analysis.thermodynamic_feasibility === 'Favorable' ? '#4caf50' : design.chemistry_analysis.thermodynamic_feasibility === 'Moderate' ? '#ff9800' : '#f44336'}">${design.chemistry_analysis.thermodynamic_feasibility}</span></p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    ` : ''}
+                                    <div style="margin: 10px 0;">
+                                        <button class="button view3d" onclick="view3D('${encodeURIComponent(design.pdb_string)}', ${i + 1})">
+                                            🔍 View in 3D
+                                        </button>
+                                        <button class="button" onclick="showProteinMPNNOutput(${i})" style="background: #9c27b0;">
+                                            🧬 ProteinMPNN Output
+                                        </button>
+                                        <button class="button" onclick="downloadPDB('${encodeURIComponent(design.pdb_string)}', 'AI_Design_${i + 1}')" style="background: #4caf50;">
+                                            💾 Download PDB
+                                        </button>
+                                    </div>
+                                    <div id="mpnn-output-${i}" style="display: none; background: #2a1a2a; padding: 15px; margin: 10px 0; border-radius: 4px; border-left: 4px solid #9c27b0;">
+                                        <h5>🧬 ProteinMPNN Model Output:</h5>
+                                        <div style="font-family: monospace; font-size: 12px;">
+                                            <p><strong>Method:</strong> <span id="mpnn-method-${i}"></span></p>
+                                            <p><strong>Inference Time:</strong> <span id="mpnn-time-${i}"></span></p>
+                                            <p><strong>Tensor Shape:</strong> <span id="mpnn-shape-${i}"></span></p>
+                                            <p><strong>Max Probability:</strong> <span id="mpnn-maxprob-${i}"></span></p>
+                                            <p><strong>Mean Confidence:</strong> <span id="mpnn-confidence-${i}"></span></p>
+                                            <p><strong>Entropy:</strong> <span id="mpnn-entropy-${i}"></span></p>
+                                            <div id="mpnn-scores-${i}"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        
+                        // Add target analysis if available
+                        if (job.target_analysis) {
+                            resultsHTML += `
+                                <div class="card" style="background: #1a3a4a; margin: 10px 0;">
+                                    <h4>🎯 Target Protein Analysis (ESM-2)</h4>
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                                        <div>
+                                            <p><strong>🔗 Binding Sites:</strong> ${job.target_analysis.binding_sites}</p>
+                                            <p><strong>🧬 Conserved Regions:</strong> ${job.target_analysis.conserved_regions}</p>
+                                        </div>
+                                        <div>
+                                            <p><strong>⚡ Functional Score:</strong> ${(job.target_analysis.functional_score * 100).toFixed(1)}%</p>
+                                            <p><strong>🤖 Analysis Method:</strong> ESM-2 Embeddings</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                        
+                        if (job.ai_summary) {
+                            resultsHTML += `
+                                <div class="card" style="background: #1a4a1a; margin: 10px 0;">
+                                    <h4>🤖 AI Pipeline Summary</h4>
+                                    <p>✅ ESM-2 Embedding Analysis: ${job.ai_summary.esm2_analysis ? 'Real AI Used' : 'Simulated'}</p>
+                                    <p>✅ ProteinMPNN Sequence Design: ${job.ai_summary.proteinmpnn_used || 'Template-Based'}</p>
+                                    <p>✅ Diffusion Model: Backbone Refinement Active</p>
+                                    <p>✅ SE(3)-GNN: Equivariant Structure Denoising Active</p>
+                                    <p>✅ Chemistry Simulation: Thermodynamic Analysis Active</p>
+                                    <p>✅ AlphaFold Integration: ${job.ai_summary.alphafold_integration ? 'Active' : 'Inactive'}</p>
+                                    <p>✅ Target Similarity Scoring: ${job.ai_summary.esm2_analysis ? 'Embedding-Based' : 'Basic'}</p>
+                                    <p>✅ Functional Prediction: ${job.ai_summary.esm2_analysis ? 'AI-Powered' : 'Statistical'}</p>
+                                    <p><strong>Total Designs:</strong> ${job.ai_summary.total_designs}</p>
+                                    <p><strong>AI Components:</strong> ${job.ai_summary.real_ai_components ? job.ai_summary.real_ai_components.join(', ') : 'None'}</p>
+                                </div>
+                            `;
+                        }
+                        
+                        document.getElementById('results').innerHTML = resultsHTML;
+                        
+                        // Add a "View All in 3D" button at the top of results
+                        const viewAllButton = `
+                            <div style="text-align: center; margin: 20px 0;">
+                                <button class="button view3d" onclick="viewAllIn3D()" style="font-size: 16px; padding: 15px 30px;">
+                                    🔍 View All Designs in 3D Viewer
+                                </button>
+                            </div>
+                        `;
+                        document.getElementById('results').innerHTML = viewAllButton + resultsHTML;
+                        
+                        // Store designs globally for 3D viewing
+                        window.currentDesigns = job.designs;
+                        window.currentJobId = jobId;
+                        
+                        // Populate ProteinMPNN output data
+                        setTimeout(() => {
+                            job.designs.forEach((design, i) => {
+                                console.log(`Design ${i} proteinmpnn_output:`, design.proteinmpnn_output);
+                                
+                                const methodEl = document.getElementById(`mpnn-method-${i}`);
+                                const timeEl = document.getElementById(`mpnn-time-${i}`);
+                                const shapeEl = document.getElementById(`mpnn-shape-${i}`);
+                                const maxprobEl = document.getElementById(`mpnn-maxprob-${i}`);
+                                const confidenceEl = document.getElementById(`mpnn-confidence-${i}`);
+                                const entropyEl = document.getElementById(`mpnn-entropy-${i}`);
+                                const scoresEl = document.getElementById(`mpnn-scores-${i}`);
+                                
+                                if (design.proteinmpnn_output && methodEl) {
+                                    const output = design.proteinmpnn_output;
+                                    methodEl.textContent = output.method || 'N/A';
+                                    timeEl.textContent = output.inference_time ? output.inference_time.toFixed(3) + 's' : 'N/A';
+                                    
+                                    if (output.model_outputs) {
+                                        const mo = output.model_outputs;
+                                        shapeEl.textContent = mo.tensor_shape ? mo.tensor_shape.join(' x ') : 'N/A';
+                                        maxprobEl.textContent = mo.max_prob ? mo.max_prob.toFixed(4) : 'N/A';
+                                        confidenceEl.textContent = mo.mean_confidence ? mo.mean_confidence.toFixed(4) : 'N/A';
+                                        entropyEl.textContent = mo.entropy ? mo.entropy.toFixed(4) : 'N/A';
+                                    }
+                                    
+                                    if (output.confidence_scores && scoresEl) {
+                                        let scoresHTML = '<p><strong>Per-Position Confidence (first 10):</strong></p><div style="background: #1a1a1a; padding: 8px; border-radius: 4px; margin: 5px 0;">';
+                                        output.confidence_scores.forEach((conf, idx) => {
+                                            scoresHTML += `<span style="margin-right: 10px;">${idx+1}: ${conf.toFixed(3)}</span>`;
+                                        });
+                                        scoresHTML += '</div>';
+                                        scoresEl.innerHTML = scoresHTML;
+                                    }
+                                } else {
+                                    console.log(`Missing elements or data for design ${i}`);
+                                }
+                            });
+                        }, 100);
+                        return;
+                    }
+                    
+                    if (job.status === 'failed') {
+                        statusDiv.innerHTML = `<div class="status error">❌ Pipeline Failed: ${job.error}</div>`;
+                        return;
+                    }
+                    
+                    attempts++;
+                    if (attempts < maxAttempts) {
+                        setTimeout(poll, 2000);
+                    }
+                    
+                } catch (error) {
+                    statusDiv.innerHTML = `<div class="status error">❌ Error: ${error.message}</div>`;
+                }
+            };
+            
+            poll();
+        }
+
+        // View 3D function
+        function view3D(pdbString, designNum) {
+            const decodedPDB = decodeURIComponent(pdbString);
+            const viewer3D = window.open('protein_viewer_3d.html', '_blank', 'width=1200,height=800');
+            
+            viewer3D.addEventListener('load', function() {
+                setTimeout(() => {
+                    viewer3D.postMessage({
+                        type: 'loadPDB',
+                        pdb: decodedPDB,
+                        name: `AI Design ${designNum}`,
+                        description: 'AI Generated Protein'
+                    }, '*');
+                }, 1000);
+            });
+        }
+
+        // Open 3D viewer with sample PDB
+        function open3DViewer() {
+            const viewer3D = window.open('protein_viewer_3d.html', '_blank', 'width=1200,height=800');
+            
+            // Load P31749.pdb when viewer opens
+            viewer3D.addEventListener('load', function() {
+                setTimeout(() => {
+                    fetch('P31749.pdb')
+                        .then(response => response.text())
+                        .then(pdbData => {
+                            viewer3D.postMessage({
+                                type: 'loadPDB',
+                                pdb: pdbData,
+                                name: 'P31749 Sample Protein',
+                                description: 'Sample protein structure for demonstration'
+                            }, '*');
+                        })
+                        .catch(error => {
+                            console.log('Could not load P31749.pdb:', error);
+                        });
+                }, 1000);
+            });
+        }
+
+        // Show ProteinMPNN output function
+        function showProteinMPNNOutput(designIndex) {
+            const outputDiv = document.getElementById(`mpnn-output-${designIndex}`);
+            if (outputDiv.style.display === 'none') {
+                outputDiv.style.display = 'block';
+            } else {
+                outputDiv.style.display = 'none';
+            }
+        }
+        
+        // Download PDB function
+        function downloadPDB(pdbString, filename) {
+            const decodedPDB = decodeURIComponent(pdbString);
+            const blob = new Blob([decodedPDB], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename + '.pdb';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            URL.revokeObjectURL(url);
+        }
+        
+        // View all designs in 3D
+        function viewAllIn3D() {
+            if (!window.currentDesigns || window.currentDesigns.length === 0) {
+                alert('No designs available to view');
+                return;
+            }
+            
+            const viewer3D = window.open('protein_viewer_3d.html', '_blank', 'width=1200,height=800');
+            
+            viewer3D.addEventListener('load', function() {
+                // Load all designs sequentially
+                window.currentDesigns.forEach((design, index) => {
+                    setTimeout(() => {
+                        viewer3D.postMessage({
+                            type: 'loadPDB',
+                            pdb: decodeURIComponent(design.pdb_string),
+                            name: `AI Design ${index + 1} (${design.length} residues)`,
+                            description: `Generated protein with ${(design.confidence_score * 100).toFixed(1)}% confidence`
+                        }, '*');
+                    }, (index + 1) * 1000); // Stagger loading by 1 second
+                });
+            });
+        }
+        
+
+
+        // Check API on load
+        checkRealAI();
+        setInterval(checkRealAI, 30000);
+    </script>
+</body>
+</html>
