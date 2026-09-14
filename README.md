@@ -1,34 +1,43 @@
-# AI-Driven Protein Resurrection Platform
+# 🧬 AI-Driven Protein Resurrection Platform
 
-A high-throughput backend API service built to serve generative biology workflows, parse complex PDB biological structural files, and deliver real-time protein structure analytics without application lag.
+An end-to-end generative biology pipeline and high-throughput backend service designed to generate 3D protein backbones, perform sequence design via inverse folding, parse biological structure files, and render interactive 3D models in real time.
+
+---
 
 ## 📌 Features
-* **High-Throughput REST APIs:** Built with FastAPI and AsyncIO to stream parallel confidence scores and entropy analytics in real time.
-* **PDB Structural Parsing:** Fast parsing engine designed to extract biological structural data efficiently.
-* **Asynchronous Execution:** Boosted pipeline processing speed by **40%** for multi-stage analytics via async background tasks.
-* **Scalable Architecture:** Designed to handle heavy computational predictions smoothly without UI/backend lag.
+
+* **3D Backbone Generation:** Leverages lightweight SE(3)-equivariant GNN diffusion models (`lightweight_diffusion.py`, `lightweight_se3_gnn.py`) to sample 3D protein coordinates.
+* **Sequence Design (Inverse Folding):** Integrates ProteinMPNN (`protein_mpnn_run.py`, `simple_proteinmpnn.py`) to generate matching amino acid sequences for designed backbones.
+* **High-Throughput REST APIs:** Built with FastAPI and AsyncIO to handle multi-stage predictions and stream structural analytics in real time.
+* **Interactive 3D Visualization:** Serves browser-based 3D structure rendering (`index_with_3d.html`, `protein_viewer_3d.html`) alongside local PDB parsing tools (`test_pdb.py`).
+* **Optimized Execution:** Employs async background execution to reduce processing latency by **40%** during heavy structural scoring.
+
+---
 
 ## 🛠️ Tech Stack
+
 * **Language:** Python 3.10+
-* **Framework:** FastAPI, AsyncIO
-* **Protocols & Data:** REST APIs, PDB Parsers
+* **Frameworks:** FastAPI, PyTorch, AsyncIO
+* **ML & Generative AI:** SE(3) Equivariant GNNs, Diffusion Models, ProteinMPNN
+* **Frontend & Visualization:** HTML5, WebGL / 3D Mol Viewers
+* **Protocols & Formats:** REST APIs, PDB
 
-## 🚀 Quick Start
+---
 
-### 1. Clone the repository
-\`\`\`bash
-git clone https://github.com/S-Sirithik-07/ai-driven-protein-resurrection-platform.git
-cd ai-driven-protein-resurrection-platform
-\`\`\`
+## 📂 Project Structure
 
-### 2. Install dependencies
-\`\`\`bash
-pip install -r requirements.txt
-\`\`\`
+```text
+├── main.py                     # Primary API server & workflow orchestrator
+├── lightweight_diffusion.py    # 3D backbone diffusion sampling logic
+├── lightweight_se3_gnn.py      # SE(3)-equivariant graph neural network backbone
+├── protein_mpnn_run.py         # ProteinMPNN sequence design pipeline
+├── protein_mpnn_utils.py       # Helper functions & utilities for ProteinMPNN
+├── simple_proteinmpnn.py       # Core ProteinMPNN model architecture
+├── test_pdb.py                 # Structure parsing & PDB formatting tests
+├── chemistry_simulation.py     # (Optional) Downstream physics & energy analytics
+├── index_with_3d.html          # Web UI dashboard with embedded 3D viewer
+├── protein_viewer_3d.html      # Standalone 3D structure viewer component
+├── .gitignore                  # Ignore rules for models, outputs, & cache
+└── requirements.txt            # Python dependency definitions
 
-### 3. Run the API server
-\`\`\`bash
-uvicorn main:app --reload
-\`\`\`
 
-Access interactive API documentation at `http://localhost:8000/docs`.
